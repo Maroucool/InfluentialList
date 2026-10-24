@@ -153,7 +153,7 @@
   .details { display: none; padding: 0 2px 16px 22px; }
   .person.open .details { display: block; }
   .details label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px; }
-  .details textarea, .details input {
+  .details textarea, .details input, .details select {
     width: 100%;
     font: inherit;
     font-size: 16px;
@@ -164,6 +164,8 @@
     padding: 9px 11px;
   }
   .details textarea { min-height: 70px; resize: vertical; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .meta.due { color: var(--accent); font-weight: 700; }
   .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .chip {
     font: inherit;
@@ -303,7 +305,36 @@
     if (days < 60) return "Contacted " + Math.round(days / 7) + " weeks ago";
     return "Contacted " + Math.round(days / 30) + " months ago";
   }
-  function isStale(p) { return !p.last || (Date.now() - p.last) > 90 * 86400000; }
+  function isStale(p) { return !p.last || (Date.now() - p.last) > (p.every || 90) * 86400000; }
+  function planDate(p) { return p.plan ? new Date(p.plan + "T09:00:00") : null; }
+  function fmtDay(d) { return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }); }
+  function eventTitle(p) { return p.type === "friend" ? "Coffee with " + p.name : "Send " + p.name + " an update"; }
+  function ymd(d) { return d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0"); }
+  function addCalendarFile(p) {
+    var d = planDate(p);
+    if (!d) { toast("Pick a date first"); return; }
+    var next = new Date(d.getTime() + 86400000);
+    var desc = (p.note || "").replace(/\n/g, "\\n").replace(/[,;]/g, " ");
+    var ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//My People//EN", "BEGIN:VEVENT",
+      "UID:" + p.id + "-" + ymd(d) + "@mypeople",
+      "DTSTAMP:" + new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z",
+      "DTSTART;VALUE=DATE:" + ymd(d), "DTEND;VALUE=DATE:" + ymd(next),
+      "SUMMARY:" + eventTitle(p), "DESCRIPTION:" + desc,
+      "BEGIN:VALARM", "TRIGGER:PT9H", "ACTION:DISPLAY", "DESCRIPTION:" + eventTitle(p), "END:VALARM",
+      "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    var blob = new Blob([ics], { type: "text/calendar" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = p.name.replace(/[^a-z0-9]+/gi, "-") + ".ics";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  function googleLink(p) {
+    var d = planDate(p);
+    if (!d) return "#";
+    var next = new Date(d.getTime() + 86400000);
+    return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(eventTitle(p)) +
+      "&dates=" + ymd(d) + "/" + ymd(next) + "&details=" + encodeURIComponent(p.note || "");
+  }
 
   function esc(s) {
     return String(s || "").replace(/[&<>"']/g, function (c) {
@@ -339,11 +370,15 @@
     document.getElementById("countM").textContent = people.filter(function (p) { return p.type === "mentor"; }).length;
 
     document.getElementById("hint").textContent = tab === "friend"
-      ? "Friends you’d love to get coffee with. Hollow dots haven’t heard from you in 3+ months."
+      ? "Friends you’d love to get coffee with. People due for a message move to the top."
       : "People who shaped your studies and career. Add their email to include them in updates.";
 
     var list = people.filter(function (p) { return p.type === tab; })
-      .sort(function (a, b) { return (a.last || 0) - (b.last || 0); });
+      .sort(function (a, b) {
+        var da = isStale(a) ? 0 : 1, db = isStale(b) ? 0 : 1;
+        if (da !== db) return da - db;
+        return (a.last || 0) - (b.last || 0);
+      });
 
     var ul = document.getElementById("list");
     if (!list.length) {
@@ -352,11 +387,17 @@
         : "No one here yet. Type a name above and tap “+ Influential”.") + "</li>";
     } else {
       ul.innerHTML = list.map(function (p) {
-        var meta = ago(p.last) + (p.type === "mentor" ? (p.email ? "" : " · no email yet") : "");
+        var d = planDate(p);
+        var today = new Date(); today.setHours(0, 0, 0, 0);
+        var due = false, meta;
+        if (d && d >= today) { meta = (p.type === "friend" ? "Coffee planned for " : "Update planned for ") + fmtDay(d); }
+        else if (isStale(p) && p.last) { meta = "Time to reach out · " + ago(p.last).toLowerCase(); due = true; }
+        else { meta = ago(p.last); }
+        if (p.type === "mentor" && !p.email) meta += " · no email yet";
         return '<li class="person' + (openId === p.id ? " open" : "") + '" data-id="' + p.id + '">' +
           '<div class="person-head" data-toggle>' +
             '<span class="dot' + (isStale(p) ? " stale" : "") + '"></span>' +
-            '<div class="who"><div class="name">' + esc(p.name) + '</div><div class="meta">' + esc(meta) + '</div></div>' +
+            '<div class="who"><div class="name">' + esc(p.name) + '</div><div class="meta' + (due ? " due" : "") + '">' + esc(meta) + '</div></div>' +
             '<svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
           '</div>' +
           '<div class="details">' +
@@ -364,6 +405,18 @@
             '<textarea data-field="note" placeholder="' + (p.type === "mentor" ? "e.g. pushed me to apply to Stanford" : "e.g. loves the café near the station") + '">' + esc(p.note) + '</textarea>' +
             '<label>Email</label>' +
             '<input data-field="email" type="email" inputmode="email" autocomplete="off" placeholder="name@example.com" value="' + esc(p.email) + '">' +
+            '<div class="two">' +
+              '<div><label>Remind me on</label><input data-field="plan" type="date" value="' + esc(p.plan) + '"></div>' +
+              '<div><label>Reach out every</label><select data-field="every">' +
+                [[30, "Month"], [90, "3 months"], [180, "6 months"], [365, "Year"]].map(function (o) {
+                  return '<option value="' + o[0] + '"' + ((p.every || 90) === o[0] ? " selected" : "") + '>' + o[1] + '</option>';
+                }).join("") +
+              '</select></div>' +
+            '</div>' +
+            (p.plan ? '<div class="row-actions">' +
+              '<button class="chip primary" data-act="ics">Add to iPhone calendar</button>' +
+              '<a class="chip" href="' + googleLink(p) + '" target="_blank" rel="noopener" style="text-decoration:none">Add to Google Calendar</a>' +
+            '</div>' : "") +
             '<div class="row-actions">' +
               '<button class="chip primary" data-act="contacted">' + (p.type === "friend" ? "Had coffee / reached out today" : "Sent an update today") + '</button>' +
               (p.email ? '<a class="chip" href="mailto:' + encodeURIComponent(p.email) + '" target="_blank" rel="noopener" style="text-decoration:none">Email ' + esc(p.name.split(" ")[0]) + '</a>' : "") +
@@ -429,7 +482,8 @@
     var act = e.target.closest("[data-act]");
     if (!act) return;
     var a = act.dataset.act;
-    if (a === "contacted") { p.last = Date.now(); save(); render(); toast("Nice, noted for " + p.name); }
+    if (a === "contacted") { p.last = Date.now(); p.plan = ""; save(); render(); toast("Nice, noted for " + p.name); }
+    if (a === "ics") { addCalendarFile(p); }
     if (a === "move") { p.type = p.type === "friend" ? "mentor" : "friend"; save(); openId = null; render(); toast(p.name + " moved"); }
     if (a === "delete") {
       if (confirm("Remove " + p.name + " from your list?")) {
@@ -444,11 +498,12 @@
     var li = e.target.closest(".person");
     var p = people.find(function (x) { return x.id === li.dataset.id; });
     if (!p) return;
-    p[field] = e.target.value;
+    p[field] = field === "every" ? Number(e.target.value) : e.target.value;
     save();
   });
   ul.addEventListener("change", function (e) {
-    if (e.target.dataset.field === "email") render();
+    var f = e.target.dataset.field;
+    if (f === "email" || f === "plan" || f === "every") render();
   });
 
   document.getElementById("copyEmails").addEventListener("click", function () {
