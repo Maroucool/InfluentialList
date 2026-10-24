@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="My People">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>My People</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #EEF2F4;
+    --surface: #FFFFFF;
+    --ink: #1C2A38;
+    --muted: #61707E;
+    --line: #D5DDE3;
+    --friend: #2E7D6B;
+    --friend-soft: #DCEFE9;
+    --mentor: #6A4C9C;
+    --mentor-soft: #ECE5F6;
+    --danger: #B23A3A;
+    --accent: var(--friend);
+    --accent-soft: var(--friend-soft);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #121A21;
+      --surface: #1B252E;
+      --ink: #E6ECF1;
+      --muted: #96A4B0;
+      --line: #2E3B47;
+      --friend: #5FC2A8;
+      --friend-soft: #1D3631;
+      --mentor: #B79BE6;
+      --mentor-soft: #2C2540;
+      --danger: #EE7B7B;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #121A21; --surface: #1B252E; --ink: #E6ECF1; --muted: #96A4B0; --line: #2E3B47;
+    --friend: #5FC2A8; --friend-soft: #1D3631; --mentor: #B79BE6; --mentor-soft: #2C2540; --danger: #EE7B7B;
+  }
+  body.mentors { --accent: var(--mentor); --accent-soft: var(--mentor-soft); }
+
+  *, *::before, *::after { box-sizing: inherit; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px;
+    line-height: 1.45;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 20px 18px 120px; }
+
+  h1 {
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin: 12px 0 18px;
+  }
+
+  /* Quick add: the one bold element */
+  .adder {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 14px;
+  }
+  .adder input {
+    width: 100%;
+    font: inherit;
+    font-size: 22px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    padding: 6px 4px 12px;
+    outline: none;
+  }
+  .adder input::placeholder { color: var(--muted); font-weight: 400; }
+  .add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .add-btn {
+    font: inherit;
+    font-weight: 700;
+    font-size: 17px;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 10px;
+    cursor: pointer;
+    color: #fff;
+  }
+  .add-btn.f { background: var(--friend); }
+  .add-btn.m { background: var(--mentor); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .add-btn { color: #10171D; } }
+  .add-btn:active { transform: scale(0.98); }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin: 26px 0 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tab {
+    font: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    background: none;
+    border: none;
+    color: var(--muted);
+    padding: 8px 4px 10px;
+    margin-right: 14px;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+  }
+  .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab .count { font-weight: 400; color: var(--muted); margin-left: 4px; }
+
+  .hint { color: var(--muted); font-size: 15px; margin: 0 0 14px; }
+
+  /* People */
+  .list { list-style: none; margin: 0; padding: 0; }
+  .person { border-bottom: 1px solid var(--line); }
+  .person-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 2px;
+    cursor: pointer;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex: none; }
+  .dot.stale { background: transparent; border: 2px solid var(--accent); }
+  .who { flex: 1; min-width: 0; }
+  .name { font-weight: 700; font-size: 19px; }
+  .meta { color: var(--muted); font-size: 14px; }
+  .chev { color: var(--muted); transition: transform .2s; flex: none; }
+  .person.open .chev { transform: rotate(90deg); }
+  .details { display: none; padding: 0 2px 16px 22px; }
+  .person.open .details { display: block; }
+  .details label { display: block; font-size: 14px; color: var(--muted); margin: 8px 0 4px; }
+  .details textarea, .details input {
+    width: 100%;
+    font: inherit;
+    font-size: 16px;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 11px;
+  }
+  .details textarea { min-height: 70px; resize: vertical; }
+  .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    font: inherit;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: 999px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .chip.primary { background: var(--accent-soft); border-color: transparent; color: var(--ink); font-weight: 700; }
+  .chip.danger { color: var(--danger); }
+
+  .empty { color: var(--muted); padding: 30px 4px; text-align: center; }
+
+  /* Email bar for influential people */
+  .mailbar {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+    display: none;
+  }
+  body.mentors .mailbar { display: block; }
+  .mailbar-inner { max-width: 560px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
+  .mailbar .info { flex: 1; font-size: 14px; color: var(--muted); }
+  .mailbar a, .mailbar button {
+    font: inherit;
+    font-weight: 700;
+    font-size: 15px;
+    border-radius: 12px;
+    padding: 11px 14px;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .mailbar a { background: var(--mentor); color: #fff; border: none; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mailbar a { color: #10171D; } }
+  .mailbar button { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .mailbar a[aria-disabled="true"] { opacity: .4; pointer-events: none; }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 15px;
+    opacity: 0;
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .backup { margin-top: 30px; text-align: center; }
+  .backup button { font: inherit; font-size: 14px; color: var(--muted); background: none; border: none; text-decoration: underline; cursor: pointer; padding: 6px; }
+
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>My People</h1>
+
+  <div class="adder">
+    <input id="newName" type="text" placeholder="Who just came to mind?" autocomplete="off" enterkeyhint="done">
+    <div class="add-row">
+      <button class="add-btn f" data-add="friend">+ Friend</button>
+      <button class="add-btn m" data-add="mentor">+ Influential</button>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="friend" aria-selected="true">Coffee friends<span class="count" id="countF">0</span></button>
+    <button class="tab" role="tab" data-tab="mentor" aria-selected="false">Influential<span class="count" id="countM">0</span></button>
+  </div>
+
+  <p class="hint" id="hint"></p>
+  <ul class="list" id="list"></ul>
+
+  <div class="backup">
+    <button id="exportBtn">Copy a backup of my list</button>
+    <button id="importBtn">Restore from backup</button>
+  </div>
+</div>
+
+<div class="mailbar">
+  <div class="mailbar-inner">
+    <div class="info" id="mailInfo"></div>
+    <button id="copyEmails">Copy emails</button>
+    <a id="emailAll" href="#" target="_blank" rel="noopener">Email all</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  var KEY = "my-people-v1";
+  var people = [];
+  var tab = "friend";
+  var openId = null;
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      people = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(people)) people = [];
+    } catch (e) { people = []; }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(people)); } catch (e) {}
+  }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  function toast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._h);
+    t._h = setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+
+  function ago(ts) {
+    if (!ts) return "Not contacted yet";
+    var days = Math.floor((Date.now() - ts) / 86400000);
+    if (days <= 0) return "Contacted today";
+    if (days === 1) return "Contacted yesterday";
+    if (days < 14) return "Contacted " + days + " days ago";
+    if (days < 60) return "Contacted " + Math.round(days / 7) + " weeks ago";
+    return "Contacted " + Math.round(days / 30) + " months ago";
+  }
+  function isStale(p) { return !p.last || (Date.now() - p.last) > 90 * 86400000; }
+
+  function esc(s) {
+    return String(s || "").replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function add(type) {
+    var input = document.getElementById("newName");
+    var name = input.value.trim();
+    if (!name) { input.focus(); toast("Type a name first"); return; }
+    var p = { id: uid(), name: name, type: type, note: "", email: "", last: null, added: Date.now() };
+    people.push(p);
+    save();
+    input.value = "";
+    tab = type;
+    openId = null;
+    render();
+    toast(name + (type === "friend" ? " added to coffee friends" : " added to influential"));
+  }
+
+  function emailsFor(type) {
+    return people.filter(function (p) { return p.type === type && p.email && p.email.indexOf("@") > 0; })
+                 .map(function (p) { return p.email.trim(); });
+  }
+
+  function render() {
+    document.body.classList.toggle("mentors", tab === "mentor");
+    document.querySelectorAll(".tab").forEach(function (b) {
+      b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false");
+    });
+    document.getElementById("countF").textContent = people.filter(function (p) { return p.type === "friend"; }).length;
+    document.getElementById("countM").textContent = people.filter(function (p) { return p.type === "mentor"; }).length;
+
+    document.getElementById("hint").textContent = tab === "friend"
+      ? "Friends you’d love to get coffee with. Hollow dots haven’t heard from you in 3+ months."
+      : "People who shaped your studies and career. Add their email to include them in updates.";
+
+    var list = people.filter(function (p) { return p.type === tab; })
+      .sort(function (a, b) { return (a.last || 0) - (b.last || 0); });
+
+    var ul = document.getElementById("list");
+    if (!list.length) {
+      ul.innerHTML = '<li class="empty">' + (tab === "friend"
+        ? "No one here yet. Type a name above and tap “+ Friend”."
+        : "No one here yet. Type a name above and tap “+ Influential”.") + "</li>";
+    } else {
+      ul.innerHTML = list.map(function (p) {
+        var meta = ago(p.last) + (p.type === "mentor" ? (p.email ? "" : " · no email yet") : "");
+        return '<li class="person' + (openId === p.id ? " open" : "") + '" data-id="' + p.id + '">' +
+          '<div class="person-head" data-toggle>' +
+            '<span class="dot' + (isStale(p) ? " stale" : "") + '"></span>' +
+            '<div class="who"><div class="name">' + esc(p.name) + '</div><div class="meta">' + esc(meta) + '</div></div>' +
+            '<svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</div>' +
+          '<div class="details">' +
+            '<label>' + (p.type === "mentor" ? "How they influenced me" : "Notes") + '</label>' +
+            '<textarea data-field="note" placeholder="' + (p.type === "mentor" ? "e.g. pushed me to apply to Stanford" : "e.g. loves the café near the station") + '">' + esc(p.note) + '</textarea>' +
+            '<label>Email</label>' +
+            '<input data-field="email" type="email" inputmode="email" autocomplete="off" placeholder="name@example.com" value="' + esc(p.email) + '">' +
+            '<div class="row-actions">' +
+              '<button class="chip primary" data-act="contacted">' + (p.type === "friend" ? "Had coffee / reached out today" : "Sent an update today") + '</button>' +
+              (p.email ? '<a class="chip" href="mailto:' + encodeURIComponent(p.email) + '" target="_blank" rel="noopener" style="text-decoration:none">Email ' + esc(p.name.split(" ")[0]) + '</a>' : "") +
+              '<button class="chip" data-act="move">Move to ' + (p.type === "friend" ? "influential" : "friends") + '</button>' +
+              '<button class="chip danger" data-act="delete">Remove</button>' +
+            '</div>' +
+          '</div>' +
+        '</li>';
+      }).join("");
+    }
+
+    var emails = emailsFor("mentor");
+    var total = people.filter(function (p) { return p.type === "mentor"; }).length;
+    document.getElementById("mailInfo").textContent = emails.length + " of " + total + " have an email";
+    var a = document.getElementById("emailAll");
+    if (emails.length) {
+      a.href = "mailto:?bcc=" + emails.map(encodeURIComponent).join(",") + "&subject=" + encodeURIComponent("A little update");
+      a.setAttribute("aria-disabled", "false");
+    } else {
+      a.href = "#";
+      a.setAttribute("aria-disabled", "true");
+    }
+  }
+
+  function copyText(text, okMsg) {
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); toast(okMsg); } catch (e) { toast("Couldn’t copy, try again"); }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast(okMsg); }, fallback);
+    } else { fallback(); }
+  }
+
+  // Events
+  document.querySelectorAll("[data-add]").forEach(function (b) {
+    b.addEventListener("click", function () { add(b.dataset.add); });
+  });
+  document.getElementById("newName").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); add(tab); }
+  });
+  document.querySelectorAll(".tab").forEach(function (b) {
+    b.addEventListener("click", function () { tab = b.dataset.tab; openId = null; render(); });
+  });
+
+  var ul = document.getElementById("list");
+  ul.addEventListener("click", function (e) {
+    var li = e.target.closest(".person");
+    if (!li) return;
+    var p = people.find(function (x) { return x.id === li.dataset.id; });
+    if (!p) return;
+    if (e.target.closest("[data-toggle]")) {
+      openId = openId === p.id ? null : p.id;
+      render();
+      return;
+    }
+    var act = e.target.closest("[data-act]");
+    if (!act) return;
+    var a = act.dataset.act;
+    if (a === "contacted") { p.last = Date.now(); save(); render(); toast("Nice, noted for " + p.name); }
+    if (a === "move") { p.type = p.type === "friend" ? "mentor" : "friend"; save(); openId = null; render(); toast(p.name + " moved"); }
+    if (a === "delete") {
+      if (confirm("Remove " + p.name + " from your list?")) {
+        people = people.filter(function (x) { return x.id !== p.id; });
+        save(); openId = null; render();
+      }
+    }
+  });
+  ul.addEventListener("input", function (e) {
+    var field = e.target.dataset.field;
+    if (!field) return;
+    var li = e.target.closest(".person");
+    var p = people.find(function (x) { return x.id === li.dataset.id; });
+    if (!p) return;
+    p[field] = e.target.value;
+    save();
+  });
+  ul.addEventListener("change", function (e) {
+    if (e.target.dataset.field === "email") render();
+  });
+
+  document.getElementById("copyEmails").addEventListener("click", function () {
+    var emails = emailsFor("mentor");
+    if (!emails.length) { toast("Add an email to someone first"); return; }
+    copyText(emails.join(", "), emails.length + " emails copied");
+  });
+
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    copyText(JSON.stringify(people), "Backup copied, paste it in your Notes");
+  });
+  document.getElementById("importBtn").addEventListener("click", function () {
+    var raw = prompt("Paste your backup here:");
+    if (!raw) return;
+    try {
+      var data = JSON.parse(raw);
+      if (!Array.isArray(data)) throw new Error();
+      people = data; save(); render(); toast("List restored");
+    } catch (e) { toast("That backup didn’t look right"); }
+  });
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
